@@ -282,7 +282,6 @@ kbd {
 .preview-wrap {
   background: var(--frame-bg);
   border: 1px solid var(--border-subtle);
-  border-top: 1px solid var(--frame-border);
   border-radius: 0 0 var(--radius) var(--radius);
   overflow-x: hidden;
   overflow-y: auto;

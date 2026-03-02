@@ -9,8 +9,7 @@ const Konva = globalThis.Konva;
 
 const copyBtn = document.getElementById("copy-btn");
 const downloadBtn = document.getElementById("download-btn");
-const actionsEl = document.querySelector(".actions");
-const retakeHqBtn = ensureRetakeButton(actionsEl, downloadBtn);
+const retakeHqBtn = document.getElementById("retake-hq-btn");
 const undoBtn = document.getElementById("undo-btn");
 const redoBtn = document.getElementById("redo-btn");
 const previewWrapEl = document.querySelector(".preview-wrap");
@@ -18,6 +17,7 @@ const editorShellEl = document.getElementById("editor-shell");
 const stageContainerEl = document.getElementById("editor-stage");
 const textEditorEl = document.getElementById("text-editor");
 const saveBtnEl = document.getElementById("save-btn");
+const retakeHintEl = document.getElementById("retake-hint");
 const toastEl = document.getElementById("toast");
 
 let currentDataUrl = null;
@@ -112,6 +112,10 @@ textEditorEl.addEventListener("blur", () => {
 });
 
 window.addEventListener("keydown", (event) => {
+  if (document.activeElement === textEditorEl) {
+    return;
+  }
+
   if (isSaveShortcut(event)) {
     event.preventDefault();
     void downloadAnnotatedImage();
@@ -139,10 +143,6 @@ window.addEventListener("keydown", (event) => {
   if (isRetakeShortcut(event)) {
     event.preventDefault();
     void retakeInHighQuality();
-    return;
-  }
-
-  if (document.activeElement === textEditorEl) {
     return;
   }
 
@@ -206,7 +206,13 @@ async function init() {
   currentDataUrl = item.dataUrl;
   currentFilename = item.filename || "screenshot.png";
   sourceCaptureContext = normalizeSourceContext(item.source);
-  setRetakeButtonEnabled(Boolean(sourceCaptureContext));
+
+  const isHighQuality = item.quality === "high";
+  const canRetake = Boolean(sourceCaptureContext) && !isHighQuality;
+  setRetakeButtonEnabled(canRetake);
+  if (retakeHintEl) {
+    retakeHintEl.hidden = !canRetake;
+  }
 
   const imageEl = await loadImage(currentDataUrl);
   naturalWidth = imageEl.naturalWidth;
@@ -638,10 +644,11 @@ function redo() {
 
 function updateUndoRedoButtons() {
   const hasAnnotations = history.length > 1;
+  const hasUnsavedAnnotations = historyIndex > 0;
   undoBtn.classList.toggle("visible", hasAnnotations);
   redoBtn.classList.toggle("visible", hasAnnotations);
   if (saveBtnEl) {
-    saveBtnEl.classList.toggle("visible", hasAnnotations);
+    saveBtnEl.classList.toggle("visible", hasUnsavedAnnotations);
   }
   undoBtn.disabled = historyIndex <= 0;
   redoBtn.disabled = historyIndex >= history.length - 1;
@@ -684,7 +691,7 @@ async function copyAnnotatedImageToClipboard() {
   }
 
   copyBtn.disabled = true;
-  const savedChildren = Array.from(copyBtn.childNodes).map((n) => n.cloneNode(true));
+  const previousText = copyBtn.textContent;
   copyBtn.textContent = "Copying...";
 
   try {
@@ -696,10 +703,7 @@ async function copyAnnotatedImageToClipboard() {
     showToast(`Copy failed: ${error?.message || String(error)}`, { error: true });
   } finally {
     copyBtn.disabled = false;
-    copyBtn.textContent = "";
-    for (const child of savedChildren) {
-      copyBtn.appendChild(child);
-    }
+    copyBtn.textContent = previousText;
   }
 }
 
@@ -786,30 +790,6 @@ function normalizeSourceContext(source) {
     tabId: Number.isInteger(source?.tabId) ? source.tabId : null,
     windowId: Number.isInteger(source?.windowId) ? source.windowId : null
   };
-}
-
-function ensureRetakeButton(actionsNode, beforeNode) {
-  let button = document.getElementById("retake-hq-btn");
-  if (button) {
-    return button;
-  }
-
-  if (!actionsNode) {
-    return null;
-  }
-
-  button = document.createElement("button");
-  button.id = "retake-hq-btn";
-  button.type = "button";
-  button.textContent = "Retake in high quality";
-
-  if (beforeNode && beforeNode.parentElement === actionsNode) {
-    actionsNode.insertBefore(button, beforeNode);
-  } else {
-    actionsNode.appendChild(button);
-  }
-
-  return button;
 }
 
 function makeAnnotatedFilename(filename) {
