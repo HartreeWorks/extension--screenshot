@@ -4,10 +4,13 @@ const DRAG_THRESHOLD = 6;
 const MIN_ARROW_LENGTH = 10;
 const MAX_HISTORY_ENTRIES = 100;
 const TOAST_DEFAULT_MS = 2200;
+const MESSAGE_RETAKE_CAPTURE_HIGH = "RETAKE_CAPTURE_HIGH";
 const Konva = globalThis.Konva;
 
 const copyBtn = document.getElementById("copy-btn");
 const downloadBtn = document.getElementById("download-btn");
+const actionsEl = document.querySelector(".actions");
+const retakeHqBtn = ensureRetakeButton(actionsEl, downloadBtn);
 const undoBtn = document.getElementById("undo-btn");
 const redoBtn = document.getElementById("redo-btn");
 const previewWrapEl = document.querySelector(".preview-wrap");
@@ -18,6 +21,7 @@ const toastEl = document.getElementById("toast");
 
 let currentDataUrl = null;
 let currentFilename = "screenshot.png";
+let sourceCaptureContext = null;
 let naturalWidth = 0;
 let naturalHeight = 0;
 let displayWidth = 0;
@@ -47,6 +51,7 @@ init().catch((error) => {
   showToast(`Error: ${error?.message || String(error)}`, { error: true });
   copyBtn.disabled = true;
   downloadBtn.disabled = true;
+  setRetakeButtonEnabled(false);
   undoBtn.disabled = true;
   redoBtn.disabled = true;
 });
@@ -58,6 +63,12 @@ copyBtn.addEventListener("click", () => {
 downloadBtn.addEventListener("click", () => {
   void downloadAnnotatedImage();
 });
+
+if (retakeHqBtn) {
+  retakeHqBtn.addEventListener("click", () => {
+    void retakeInHighQuality();
+  });
+}
 
 undoBtn.addEventListener("click", () => {
   undo();
@@ -118,6 +129,12 @@ window.addEventListener("keydown", (event) => {
     return;
   }
 
+  if (isRetakeShortcut(event)) {
+    event.preventDefault();
+    void retakeInHighQuality();
+    return;
+  }
+
   if (document.activeElement === textEditorEl) {
     return;
   }
@@ -147,6 +164,7 @@ async function init() {
     showToast(`Capture failed: ${error}`, { error: true });
     copyBtn.disabled = true;
     downloadBtn.disabled = true;
+    setRetakeButtonEnabled(false);
     undoBtn.disabled = true;
     redoBtn.disabled = true;
     return;
@@ -157,6 +175,7 @@ async function init() {
     showToast("No screenshot id was provided.", { error: true });
     copyBtn.disabled = true;
     downloadBtn.disabled = true;
+    setRetakeButtonEnabled(false);
     undoBtn.disabled = true;
     redoBtn.disabled = true;
     return;
@@ -171,6 +190,7 @@ async function init() {
     showToast("Screenshot data was not found.", { error: true });
     copyBtn.disabled = true;
     downloadBtn.disabled = true;
+    setRetakeButtonEnabled(false);
     undoBtn.disabled = true;
     redoBtn.disabled = true;
     return;
@@ -178,6 +198,8 @@ async function init() {
 
   currentDataUrl = item.dataUrl;
   currentFilename = item.filename || "screenshot.png";
+  sourceCaptureContext = normalizeSourceContext(item.source);
+  setRetakeButtonEnabled(Boolean(sourceCaptureContext));
 
   const imageEl = await loadImage(currentDataUrl);
   naturalWidth = imageEl.naturalWidth;
@@ -608,6 +630,9 @@ function redo() {
 }
 
 function updateUndoRedoButtons() {
+  const hasAnnotations = history.length > 1;
+  undoBtn.classList.toggle("visible", hasAnnotations);
+  redoBtn.classList.toggle("visible", hasAnnotations);
   undoBtn.disabled = historyIndex <= 0;
   redoBtn.disabled = historyIndex >= history.length - 1;
 }
@@ -637,6 +662,11 @@ function isSaveShortcut(event) {
   return modifier && !event.shiftKey && event.key.toLowerCase() === "s";
 }
 
+function isRetakeShortcut(event) {
+  const modifier = event.metaKey || event.ctrlKey;
+  return modifier && !event.shiftKey && event.key.toLowerCase() === "i";
+}
+
 async function copyAnnotatedImageToClipboard() {
   if (!currentDataUrl) {
     showToast("No screenshot loaded.", { error: true });
@@ -644,7 +674,7 @@ async function copyAnnotatedImageToClipboard() {
   }
 
   copyBtn.disabled = true;
-  const previousText = copyBtn.textContent;
+  const savedChildren = Array.from(copyBtn.childNodes).map((n) => n.cloneNode(true));
   copyBtn.textContent = "Copying...";
 
   try {
@@ -656,7 +686,10 @@ async function copyAnnotatedImageToClipboard() {
     showToast(`Copy failed: ${error?.message || String(error)}`, { error: true });
   } finally {
     copyBtn.disabled = false;
-    copyBtn.textContent = previousText;
+    copyBtn.textContent = "";
+    for (const child of savedChildren) {
+      copyBtn.appendChild(child);
+    }
   }
 }
 
@@ -689,6 +722,84 @@ async function downloadAnnotatedImage() {
     downloadBtn.disabled = false;
     downloadBtn.textContent = previousText;
   }
+}
+
+async function retakeInHighQuality() {
+  if (!retakeHqBtn) {
+    showToast("Retake button is unavailable.", { error: true });
+    return;
+  }
+
+  if (!sourceCaptureContext) {
+    showToast("Retake is unavailable for this screenshot.", { error: true });
+    return;
+  }
+
+  retakeHqBtn.disabled = true;
+  const previousText = retakeHqBtn.textContent;
+  retakeHqBtn.textContent = "Retaking...";
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: MESSAGE_RETAKE_CAPTURE_HIGH,
+      payload: { source: sourceCaptureContext }
+    });
+
+    if (!response?.ok) {
+      throw new Error(response?.error || "Could not start high-quality retake.");
+    }
+
+    showToast("High-quality retake finished");
+  } catch (error) {
+    showToast(`Retake failed: ${error?.message || String(error)}`, { error: true });
+  } finally {
+    retakeHqBtn.textContent = previousText;
+    setRetakeButtonEnabled(Boolean(sourceCaptureContext));
+  }
+}
+
+function setRetakeButtonEnabled(enabled) {
+  if (!retakeHqBtn) {
+    return;
+  }
+  retakeHqBtn.disabled = !enabled;
+}
+
+function normalizeSourceContext(source) {
+  const url = typeof source?.url === "string" ? source.url.trim() : "";
+  if (!url) {
+    return null;
+  }
+
+  return {
+    url,
+    tabId: Number.isInteger(source?.tabId) ? source.tabId : null,
+    windowId: Number.isInteger(source?.windowId) ? source.windowId : null
+  };
+}
+
+function ensureRetakeButton(actionsNode, beforeNode) {
+  let button = document.getElementById("retake-hq-btn");
+  if (button) {
+    return button;
+  }
+
+  if (!actionsNode) {
+    return null;
+  }
+
+  button = document.createElement("button");
+  button.id = "retake-hq-btn";
+  button.type = "button";
+  button.textContent = "Retake in high quality";
+
+  if (beforeNode && beforeNode.parentElement === actionsNode) {
+    actionsNode.insertBefore(button, beforeNode);
+  } else {
+    actionsNode.appendChild(button);
+  }
+
+  return button;
 }
 
 function makeAnnotatedFilename(filename) {

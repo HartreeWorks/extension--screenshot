@@ -14,6 +14,7 @@ const DEFAULT_WEBP_QUALITIES_AFTER_EXTRA_DOWNSCALE = [0.74, 0.68];
 
 const MENU_ID_CAPTURE_HIGH_QUALITY = "capture_high_quality";
 const DEFAULT_ACTION_TITLE = "Screenshot";
+const MESSAGE_RETAKE_CAPTURE_HIGH = "RETAKE_CAPTURE_HIGH";
 
 let lastCaptureCallAt = 0;
 let captureInProgress = false;
@@ -24,6 +25,37 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.runtime.onStartup.addListener(() => {
   createActionContextMenu();
+});
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type !== MESSAGE_RETAKE_CAPTURE_HIGH) {
+    return false;
+  }
+
+  (async () => {
+    try {
+      const source = normalizeRetakeSource(message.payload?.source);
+      if (!source) {
+        throw new Error("Retake is unavailable for this screenshot.");
+      }
+
+      if (captureInProgress) {
+        throw new Error(
+          "A capture is already in progress. Wait for it to finish, or cancel with Escape or manual scrolling."
+        );
+      }
+
+      await runHighQualityRetake(source);
+      sendResponse({ ok: true });
+    } catch (error) {
+      const messageText = getErrorMessage(error);
+      console.error("High-quality retake failed:", error);
+      await openViewer({ error: messageText }).catch(() => {});
+      sendResponse({ ok: false, error: messageText });
+    }
+  })();
+
+  return true;
 });
 
 chrome.action.onClicked.addListener(async (tab) => {
@@ -59,6 +91,7 @@ async function runCaptureForTab(tab, options) {
   }
 
   const quality = options?.quality === "high" ? "high" : "standard";
+  const source = buildCaptureSource(tab);
 
   if (captureInProgress) {
     await openViewer({
@@ -75,7 +108,7 @@ async function runCaptureForTab(tab, options) {
     const result = await captureFullPage(tab, { quality });
     await setCapturePhase(tab.id, "saving", quality);
     await saveToDownloads(result.dataUrl, result.filename);
-    await storeCapture(result.captureId, result.dataUrl, result.filename);
+    await storeCapture(result.captureId, result.dataUrl, result.filename, { quality, source });
     await openViewer({ captureId: result.captureId });
   } catch (error) {
     const message = getErrorMessage(error);
@@ -85,6 +118,66 @@ async function runCaptureForTab(tab, options) {
     await sendTabMessage(tab.id, { type: "END_CAPTURE_SESSION" }).catch(() => {});
     captureInProgress = false;
     await clearCaptureBadge(tab.id);
+  }
+}
+
+async function runHighQualityRetake(source) {
+  const targetTab = await resolveRetakeTargetTab(source);
+  if (!targetTab?.id) {
+    throw new Error("Could not open the source tab for retake.");
+  }
+
+  await focusTab(targetTab.id, targetTab.windowId);
+  await waitForTabReady(targetTab.id);
+
+  const freshTab = await chrome.tabs.get(targetTab.id);
+  await runCaptureForTab(freshTab, { quality: "high" });
+}
+
+async function resolveRetakeTargetTab(source) {
+  const sourceUrl = source.url;
+  const existingTab = Number.isInteger(source.tabId) ? await chrome.tabs.get(source.tabId).catch(() => null) : null;
+
+  if (existingTab?.id && comparableUrl(existingTab.url) === comparableUrl(sourceUrl)) {
+    return existingTab;
+  }
+
+  const createOptions = {
+    url: sourceUrl,
+    active: true
+  };
+
+  if (Number.isInteger(source.windowId)) {
+    createOptions.windowId = source.windowId;
+  }
+
+  try {
+    return await chrome.tabs.create(createOptions);
+  } catch (_error) {
+    delete createOptions.windowId;
+    return chrome.tabs.create(createOptions);
+  }
+}
+
+async function focusTab(tabId, windowId) {
+  if (Number.isInteger(windowId) && windowId >= 0) {
+    await chrome.windows.update(windowId, { focused: true }).catch(() => {});
+  }
+  await chrome.tabs.update(tabId, { active: true }).catch(() => {});
+}
+
+async function waitForTabReady(tabId, timeoutMs = 15000) {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const tab = await chrome.tabs.get(tabId).catch(() => null);
+    if (!tab) {
+      throw new Error("Source tab is no longer available.");
+    }
+    if (tab.status === "complete") {
+      return;
+    }
+    await sleep(150);
   }
 }
 
@@ -473,13 +566,15 @@ async function saveToDownloads(dataUrl, filename) {
   });
 }
 
-async function storeCapture(captureId, dataUrl, filename) {
+async function storeCapture(captureId, dataUrl, filename, meta = {}) {
   const storage = getStorageArea();
   const key = `${CAPTURE_PREFIX}${captureId}`;
   await storage.set({
     [key]: {
       dataUrl,
       filename,
+      quality: meta.quality === "high" ? "high" : "standard",
+      source: normalizeRetakeSource(meta.source),
       createdAt: Date.now()
     }
   });
@@ -530,6 +625,42 @@ function makeFilename(quality, extension) {
   const suffix = quality === "high" ? "-high" : "";
   const ext = extension || "png";
   return `screenshot-${y}-${m}-${d}-${hh}-${mm}-${ss}${suffix}.${ext}`;
+}
+
+function buildCaptureSource(tab) {
+  return normalizeRetakeSource({
+    url: typeof tab?.url === "string" ? tab.url : "",
+    tabId: Number.isInteger(tab?.id) ? tab.id : null,
+    windowId: Number.isInteger(tab?.windowId) ? tab.windowId : null
+  });
+}
+
+function normalizeRetakeSource(source) {
+  const url = typeof source?.url === "string" ? source.url.trim() : "";
+  if (!url) {
+    return null;
+  }
+
+  return {
+    url,
+    tabId: Number.isInteger(source?.tabId) ? source.tabId : null,
+    windowId: Number.isInteger(source?.windowId) ? source.windowId : null
+  };
+}
+
+function comparableUrl(url) {
+  const input = typeof url === "string" ? url.trim() : "";
+  if (!input) {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(input);
+    parsed.hash = "";
+    return parsed.toString();
+  } catch (_error) {
+    return input;
+  }
 }
 
 function getErrorMessage(error) {
