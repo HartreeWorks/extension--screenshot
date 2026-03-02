@@ -9,18 +9,25 @@
   <body>
     <main class="page">
       <header class="toolbar">
-        <h1>Screenshot preview</h1>
+        <div class="hints" aria-label="Annotation hints">
+          <span class="hints-label">Annotate:</span>
+          <span>drag for arrows, click for text</span>
+        </div>
+        <div class="toolbar-center">
+          <button id="undo-btn" type="button" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6.69 3L3 13"/></svg> Undo</button>
+          <button id="save-btn" type="button" class="save-btn"><kbd>⌘S</kbd> Save</button>
+          <button id="redo-btn" type="button" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6.69 3L21 13"/></svg> Redo</button>
+        </div>
         <div class="actions">
-          <button id="undo-btn" type="button" disabled>Undo</button>
-          <button id="redo-btn" type="button" disabled>Redo</button>
-          <button id="download-btn" type="button">Download annotated image (Cmd+S)</button>
-          <button id="copy-btn" type="button">Copy image (Cmd+C)</button>
+          <span class="shortcuts">
+            <span><kbd>⌘C</kbd> Copy</span>
+            <span><kbd>⌘I</kbd> Increase quality</span>
+          </span>
+          <button id="download-btn" type="button" hidden>Download</button>
+          <button id="copy-btn" type="button" hidden>Copy</button>
+          <button id="retake-hq-btn" type="button" hidden>Increase quality</button>
         </div>
       </header>
-      <section class="hint-bar" aria-label="Annotation hints">
-        <span>Drag: red arrow</span>
-        <span>Click: red text</span>
-      </section>
       <section class="preview-wrap">
         <div id="editor-shell" class="editor-shell">
           <div id="editor-stage" class="editor-stage" aria-label="Screenshot annotation canvas"></div>

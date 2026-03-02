@@ -17,6 +17,7 @@ const previewWrapEl = document.querySelector(".preview-wrap");
 const editorShellEl = document.getElementById("editor-shell");
 const stageContainerEl = document.getElementById("editor-stage");
 const textEditorEl = document.getElementById("text-editor");
+const saveBtnEl = document.getElementById("save-btn");
 const toastEl = document.getElementById("toast");
 
 let currentDataUrl = null;
@@ -63,6 +64,12 @@ copyBtn.addEventListener("click", () => {
 downloadBtn.addEventListener("click", () => {
   void downloadAnnotatedImage();
 });
+
+if (saveBtnEl) {
+  saveBtnEl.addEventListener("click", () => {
+    void downloadAnnotatedImage();
+  });
+}
 
 if (retakeHqBtn) {
   retakeHqBtn.addEventListener("click", () => {
@@ -633,6 +640,9 @@ function updateUndoRedoButtons() {
   const hasAnnotations = history.length > 1;
   undoBtn.classList.toggle("visible", hasAnnotations);
   redoBtn.classList.toggle("visible", hasAnnotations);
+  if (saveBtnEl) {
+    saveBtnEl.classList.toggle("visible", hasAnnotations);
+  }
   undoBtn.disabled = historyIndex <= 0;
   redoBtn.disabled = historyIndex >= history.length - 1;
 }
@@ -715,7 +725,7 @@ async function downloadAnnotatedImage() {
       saveAs: false
     });
 
-    showToast("Screenshot saved to Downloads");
+    showToast("Annotated screenshot saved to Downloads");
   } catch (error) {
     showToast(`Download failed: ${error?.message || String(error)}`, { error: true });
   } finally {
