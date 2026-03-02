@@ -153,10 +153,25 @@
 
   async function scrollToPosition(xCss, yCss) {
     captureState.programmaticScroll = true;
+
+    const docEl = document.documentElement;
+    const body = document.body;
+    const previousDocScrollBehavior = docEl.style.scrollBehavior;
+    const previousBodyScrollBehavior = body ? body.style.scrollBehavior : "";
+
     try {
-      window.scrollTo({ left: xCss, top: yCss, behavior: "auto" });
+      docEl.style.scrollBehavior = "auto";
+      if (body) {
+        body.style.scrollBehavior = "auto";
+      }
+
+      window.scrollTo(xCss, yCss);
       await waitForScrollSettled();
     } finally {
+      docEl.style.scrollBehavior = previousDocScrollBehavior;
+      if (body) {
+        body.style.scrollBehavior = previousBodyScrollBehavior;
+      }
       captureState.programmaticScroll = false;
     }
   }
@@ -165,7 +180,7 @@
     return new Promise((resolve) => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          setTimeout(resolve, 80);
+          setTimeout(resolve, 120);
         });
       });
     });
@@ -177,7 +192,6 @@
     }
     listenersBound = true;
 
-    window.addEventListener("scroll", onScroll, true);
     window.addEventListener("wheel", onWheel, { passive: true, capture: true });
     window.addEventListener("touchmove", onTouchMove, { passive: true, capture: true });
     window.addEventListener("keydown", onKeyDown, true);
@@ -189,28 +203,29 @@
     }
     listenersBound = false;
 
-    window.removeEventListener("scroll", onScroll, true);
     window.removeEventListener("wheel", onWheel, true);
     window.removeEventListener("touchmove", onTouchMove, true);
     window.removeEventListener("keydown", onKeyDown, true);
   }
 
-  function onScroll() {
+  function onWheel(event) {
     if (!captureState.active || captureState.programmaticScroll) {
+      return;
+    }
+    if (!event.isTrusted) {
+      return;
+    }
+    if (Math.abs(event.deltaX) < 0.5 && Math.abs(event.deltaY) < 0.5) {
       return;
     }
     cancelCapture("Capture cancelled because the page was scrolled.");
   }
 
-  function onWheel() {
+  function onTouchMove(event) {
     if (!captureState.active || captureState.programmaticScroll) {
       return;
     }
-    cancelCapture("Capture cancelled because the page was scrolled.");
-  }
-
-  function onTouchMove() {
-    if (!captureState.active || captureState.programmaticScroll) {
+    if (!event.isTrusted) {
       return;
     }
     cancelCapture("Capture cancelled because the page was scrolled.");
@@ -218,6 +233,10 @@
 
   function onKeyDown(event) {
     if (!captureState.active) {
+      return;
+    }
+
+    if (!event.isTrusted) {
       return;
     }
 

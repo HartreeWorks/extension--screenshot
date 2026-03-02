@@ -32,6 +32,8 @@ body {
 .actions {
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 button {
@@ -53,9 +55,17 @@ button:disabled {
   cursor: not-allowed;
 }
 
-.status {
-  margin: 0 0 0.85rem 0;
-  font-size: 0.9rem;
+.hint-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.9rem;
+  margin-bottom: 0.85rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #d6deeb;
+  border-radius: 10px;
+  background: #ffffff;
+  font-size: 0.82rem;
+  color: #36435a;
 }
 
 .preview-wrap {
@@ -64,11 +74,64 @@ button:disabled {
   overflow: auto;
   background: #fff;
   box-shadow: 0 6px 24px rgba(10, 25, 50, 0.08);
-  max-height: calc(100vh - 150px);
+  max-height: calc(100vh - 190px);
 }
 
-#preview {
+.editor-shell {
+  position: relative;
+  width: fit-content;
+  min-width: 100%;
+  min-height: 240px;
+}
+
+.editor-stage {
+  display: block;
+}
+
+.text-editor {
+  position: absolute;
   display: none;
-  max-width: 100%;
-  height: auto;
+  z-index: 20;
+  margin: 0;
+  padding: 2px 4px;
+  border: 1px solid #d62828;
+  outline: none;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #d62828;
+  font-size: 28px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.2;
+  white-space: pre;
+  resize: none;
+  overflow: hidden;
+  min-width: 28px;
+}
+
+.toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 999999;
+  max-width: 360px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: #ffffff;
+  background: rgba(18, 88, 40, 0.95);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  font-size: 0.9rem;
+  line-height: 1.35;
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.toast.error {
+  background: rgba(156, 31, 31, 0.95);
 }

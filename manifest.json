@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "One-click full page screenshot",
+  "name": "Screenshot",
   "version": "1.0.0",
   "description": "Capture a full-page PNG in one click, save to Downloads, and open a copy-friendly preview tab.",
   "permissions": [
@@ -26,7 +26,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "Capture full page screenshot",
+    "default_title": "Screenshot",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png"

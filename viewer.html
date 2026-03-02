@@ -11,14 +11,31 @@
       <header class="toolbar">
         <h1>Screenshot preview</h1>
         <div class="actions">
-          <button id="copy-btn" type="button">Copy image</button>
+          <button id="undo-btn" type="button" disabled>Undo</button>
+          <button id="redo-btn" type="button" disabled>Redo</button>
+          <button id="download-btn" type="button">Download annotated image (Cmd+S)</button>
+          <button id="copy-btn" type="button">Copy image (Cmd+C)</button>
         </div>
       </header>
-      <p id="status" class="status">Loading screenshot...</p>
+      <section class="hint-bar" aria-label="Annotation hints">
+        <span>Drag: red arrow</span>
+        <span>Click: red text</span>
+      </section>
       <section class="preview-wrap">
-        <img id="preview" alt="Captured full-page screenshot" />
+        <div id="editor-shell" class="editor-shell">
+          <div id="editor-stage" class="editor-stage" aria-label="Screenshot annotation canvas"></div>
+          <textarea
+            id="text-editor"
+            class="text-editor"
+            autocomplete="off"
+            spellcheck="false"
+            rows="1"
+          ></textarea>
+        </div>
       </section>
     </main>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="vendor/konva.min.js"></script>
     <script type="module" src="viewer.js"></script>
   </body>
 </html>

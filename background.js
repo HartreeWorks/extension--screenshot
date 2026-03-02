@@ -13,7 +13,7 @@ const DEFAULT_WEBP_QUALITIES = [0.82, 0.74, 0.68];
 const DEFAULT_WEBP_QUALITIES_AFTER_EXTRA_DOWNSCALE = [0.74, 0.68];
 
 const MENU_ID_CAPTURE_HIGH_QUALITY = "capture_high_quality";
-const DEFAULT_ACTION_TITLE = "Capture full page screenshot";
+const DEFAULT_ACTION_TITLE = "Screenshot";
 
 let lastCaptureCallAt = 0;
 let captureInProgress = false;
@@ -47,7 +47,7 @@ function createActionContextMenu() {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: MENU_ID_CAPTURE_HIGH_QUALITY,
-      title: "Capture full page screenshot (high quality)",
+      title: "Screenshot (high quality)",
       contexts: ["action"]
     });
   });
