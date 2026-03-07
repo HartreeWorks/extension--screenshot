@@ -113,7 +113,14 @@ async function runCaptureForTab(tab, options) {
   } catch (error) {
     const message = getErrorMessage(error);
     console.error("Full page screenshot failed:", error);
-    await openViewer({ error: message });
+    if (isCancellationError(message)) {
+      await sendTabMessage(tab.id, {
+        type: "SHOW_ERROR_TOAST",
+        payload: { message }
+      }).catch(() => {});
+    } else {
+      await openViewer({ error: message });
+    }
   } finally {
     await sendTabMessage(tab.id, { type: "END_CAPTURE_SESSION" }).catch(() => {});
     captureInProgress = false;
@@ -370,6 +377,10 @@ async function waitForCaptureQuotaWindow() {
 function isCaptureQuotaError(error) {
   const message = getErrorMessage(error);
   return message.includes("MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND");
+}
+
+function isCancellationError(message) {
+  return typeof message === "string" && message.toLowerCase().includes("cancelled");
 }
 
 function sleep(ms) {

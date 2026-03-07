@@ -352,9 +352,9 @@ function handleStagePointerMove() {
       fill: RED,
       strokeWidth: 5,
       pointerLength: 14,
-      pointerWidth: 12,
-      lineCap: "round",
-      lineJoin: "round",
+      pointerWidth: 10,
+      lineCap: "butt",
+      lineJoin: "miter",
       opacity: 0.65,
       dash: [8, 6],
       listening: false
@@ -509,10 +509,10 @@ function createArrowNode(points) {
     stroke: RED,
     fill: RED,
     strokeWidth: 6,
-    pointerLength: 18,
-    pointerWidth: 14,
-    lineCap: "round",
-    lineJoin: "round",
+    pointerLength: 16,
+    pointerWidth: 12,
+    lineCap: "butt",
+    lineJoin: "miter",
     draggable: false
   });
 }
@@ -644,11 +644,11 @@ function redo() {
 
 function updateUndoRedoButtons() {
   const hasAnnotations = history.length > 1;
-  const hasUnsavedAnnotations = historyIndex > 0;
   undoBtn.classList.toggle("visible", hasAnnotations);
   redoBtn.classList.toggle("visible", hasAnnotations);
   if (saveBtnEl) {
-    saveBtnEl.classList.toggle("visible", hasUnsavedAnnotations);
+    saveBtnEl.classList.toggle("visible", hasAnnotations);
+    saveBtnEl.disabled = historyIndex <= 0;
   }
   undoBtn.disabled = historyIndex <= 0;
   redoBtn.disabled = historyIndex >= history.length - 1;

@@ -64,6 +64,10 @@
             restoreHiddenElements();
             sendResponse({ ok: true });
             return;
+          case "SHOW_ERROR_TOAST":
+            showErrorToast(message.payload?.message || "An error occurred.");
+            sendResponse({ ok: true });
+            return;
           default:
             sendResponse({ ok: false, error: "Unknown message type." });
         }
@@ -282,7 +286,8 @@
       overlayEl.setAttribute("data-one-click-capture-overlay", "true");
       overlayEl.style.position = "fixed";
       overlayEl.style.top = "12px";
-      overlayEl.style.right = "12px";
+      overlayEl.style.left = "50%";
+      overlayEl.style.transform = "translateX(-50%)";
       overlayEl.style.zIndex = "2147483647";
       overlayEl.style.maxWidth = "360px";
       overlayEl.style.padding = "10px 12px";
@@ -344,10 +349,19 @@
   function hideFixedAndStickyElements() {
     hiddenElements = [];
     const all = document.querySelectorAll("*");
+    const viewportArea = window.innerWidth * window.innerHeight;
 
     for (const element of all) {
       const style = window.getComputedStyle(element);
       if (style.position !== "fixed" && style.position !== "sticky") {
+        continue;
+      }
+
+      // Skip elements that cover most of the viewport — these are likely
+      // app-shell containers (e.g. a fixed <main>), not overlays or toolbars.
+      const rect = element.getBoundingClientRect();
+      const elementArea = rect.width * rect.height;
+      if (elementArea > viewportArea * 0.5) {
         continue;
       }
 
@@ -375,5 +389,41 @@
       }
     }
     hiddenElements = [];
+  }
+
+  function showErrorToast(message) {
+    const el = document.createElement("div");
+    el.setAttribute("data-one-click-capture-toast", "true");
+    el.style.position = "fixed";
+    el.style.top = "12px";
+    el.style.left = "50%";
+    el.style.transform = "translateX(-50%) translateY(-10px) scale(0.96)";
+    el.style.zIndex = "2147483647";
+    el.style.maxWidth = "360px";
+    el.style.padding = "10px 14px";
+    el.style.borderRadius = "8px";
+    el.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.25)";
+    el.style.fontFamily = "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+    el.style.fontSize = "13px";
+    el.style.lineHeight = "1.4";
+    el.style.color = "#ffffff";
+    el.style.background = "rgba(163, 31, 31, 0.94)";
+    el.style.whiteSpace = "normal";
+    el.style.pointerEvents = "none";
+    el.style.opacity = "0";
+    el.style.transition = "opacity 200ms ease, transform 200ms ease";
+    el.textContent = message;
+    document.documentElement.appendChild(el);
+
+    requestAnimationFrame(() => {
+      el.style.opacity = "1";
+      el.style.transform = "translateX(-50%) translateY(0) scale(1)";
+    });
+
+    setTimeout(() => {
+      el.style.opacity = "0";
+      el.style.transform = "translateX(-50%) translateY(-10px) scale(0.96)";
+      setTimeout(() => el.remove(), 250);
+    }, 3500);
   }
 })();
